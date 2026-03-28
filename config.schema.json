@@ -1,7 +1,7 @@
 {
-  "pluginAlias": "Airtouch2Plus",
+  "pluginAlias": "AirTouchHomebridge",
   "pluginType": "platform",
-  "singularDisplayName": "AirTouch 2+",
+  "singularDisplayName": "AirTouch Homebridge",
   "headerDisplay": true,
   "footerDisplay": false,
   "schema": {
@@ -10,7 +10,7 @@
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "AirTouch 2+",
+        "default": "AirTouch Homebridge",
         "required": true
       },
       "host": {

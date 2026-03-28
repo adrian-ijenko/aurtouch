@@ -1,7 +1,7 @@
 {
-  "name": "homebridge-airtouch2-plus",
-  "version": "1.0.0",
-  "description": "Homebridge platform for Polyaire AirTouch 2+ wall controller (TCP)",
+  "name": "homebridge-airtouch",
+  "version": "2.0.0",
+  "description": "AirTouch Homebridge — HomeKit for Polyaire AirTouch 2+ wall panels (TCP)",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -24,14 +24,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/adrian-ijenko/aurtouch.git"
+    "url": "https://github.com/adrian-ijenko/AirTouch-Homebridge.git"
   },
   "bugs": {
-    "url": "https://github.com/adrian-ijenko/aurtouch/issues"
+    "url": "https://github.com/adrian-ijenko/AirTouch-Homebridge/issues"
   },
-  "homepage": "https://github.com/adrian-ijenko/aurtouch#readme",
+  "homepage": "https://github.com/adrian-ijenko/AirTouch-Homebridge#readme",
   "homebridge": {
-    "pluginAlias": "Airtouch2Plus",
+    "pluginAlias": "AirTouchHomebridge",
     "pluginType": "platform"
   },
   "devDependencies": {

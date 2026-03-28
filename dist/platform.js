@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Airtouch2PlusPlatform = void 0;
+exports.AirTouchHomebridgePlatform = void 0;
 const airtouchClient_1 = require("./airtouchClient");
 const protocol_1 = require("./protocol");
 const settings_1 = require("./settings");
@@ -18,7 +18,7 @@ function protocolFanCodeToName(code) {
     const entry = Object.keys(protocol_1.AC_FAN).find((k) => protocol_1.AC_FAN[k] === code);
     return entry;
 }
-class Airtouch2PlusPlatform {
+class AirTouchHomebridgePlatform {
     log;
     config;
     api;
@@ -34,11 +34,11 @@ class Airtouch2PlusPlatform {
         this.config = config;
         this.api = api;
         if (!config?.units?.length) {
-            this.log.error('Airtouch2Plus: `units` array is required in config.');
+            this.log.error('AirTouch Homebridge: `units` array is required in config.');
         }
         const host = config.host ?? config.ip_address;
         if (!host) {
-            this.log.error('Airtouch2Plus: `host` (or legacy `ip_address`) is required.');
+            this.log.error('AirTouch Homebridge: `host` (or legacy `ip_address`) is required.');
         }
         const logger = {
             debug: (m) => this.log.debug(m),
@@ -62,7 +62,7 @@ class Airtouch2PlusPlatform {
                 this.onGroupStatus(st);
         });
         this.client.on('connected', () => {
-            this.log.info('Airtouch2Plus: session ready');
+            this.log.info('AirTouch Homebridge: session ready');
         });
         this.api.on('didFinishLaunching', () => {
             if (host && config.units?.length)
@@ -149,7 +149,7 @@ class Airtouch2PlusPlatform {
         if (!acc) {
             const unitCfg = this.config.units[st.ac_unit_number];
             if (!unitCfg) {
-                this.log.warn(`Airtouch2Plus: no config.units[${st.ac_unit_number}] — add an entry for this AC index.`);
+                this.log.warn(`AirTouch Homebridge: no config.units[${st.ac_unit_number}] — add an entry for this AC index.`);
                 return;
             }
             const uuid = this.api.hap.uuid.generate(`${REGISTER_NAME}:ac:${st.ac_unit_number}`);
@@ -410,4 +410,4 @@ class Airtouch2PlusPlatform {
         accessory.updateReachability(true);
     }
 }
-exports.Airtouch2PlusPlatform = Airtouch2PlusPlatform;
+exports.AirTouchHomebridgePlatform = AirTouchHomebridgePlatform;

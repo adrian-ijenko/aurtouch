@@ -21,7 +21,7 @@ const args = process.argv.slice(2);
 
 function printHelp(exitCode) {
   console.log(`
-AirTouch 2+ panel probe (TCP port 9200). Build first: npm run build
+AirTouch Homebridge — panel probe (TCP port 9200). Build first: npm run build
 
   node scripts/probe-panel.cjs <panel-ip> [options]
 

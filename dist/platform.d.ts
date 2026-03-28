@@ -5,7 +5,7 @@ interface UnitConfig {
     /** Fan speed names matching protocol, e.g. ["AUTO","QUIET","LOW","MEDIUM","HIGH"] */
     fan: string[];
 }
-export interface Airtouch2PlusPlatformConfig extends PlatformConfig {
+export interface AirTouchHomebridgePlatformConfig extends PlatformConfig {
     name?: string;
     host?: string;
     ip_address?: string;
@@ -54,9 +54,9 @@ interface ZoneAccessoryContext {
     suppressPanelZoneUntil?: number;
 }
 type Ctx = AcAccessoryContext | ZoneAccessoryContext;
-export declare class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
+export declare class AirTouchHomebridgePlatform implements DynamicPlatformPlugin {
     readonly log: Logging;
-    readonly config: Airtouch2PlusPlatformConfig;
+    readonly config: AirTouchHomebridgePlatformConfig;
     readonly api: API;
     private readonly client;
     /** Keyed by AC index / zone index — display names can change via config */
@@ -65,7 +65,7 @@ export declare class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     private acRefreshTimer;
     /** In-memory only — never persist. Context `wired` was persisted and skipped re-wiring after restart. */
     private readonly accessoryHandlersWired;
-    constructor(log: Logging, config: Airtouch2PlusPlatformConfig, api: API);
+    constructor(log: Logging, config: AirTouchHomebridgePlatformConfig, api: API);
     /** Ask the panel for fresh AC + zone status after a command (debounced). */
     private scheduleStatusRefresh;
     private get Service();

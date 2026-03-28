@@ -1,15 +1,15 @@
 <div align="center">
 
-# `homebridge-airtouch2-plus`
+# AirTouch Homebridge
 
 **HomeKit control for Polyaire AirTouch 2+ wall controllers over your LAN**
 
-[![GitHub package.json version](https://img.shields.io/github/package-json/v/adrian-ijenko/aurtouch?style=flat-square)](https://github.com/adrian-ijenko/aurtouch)
-[![License](https://img.shields.io/github/license/adrian-ijenko/aurtouch?style=flat-square)](LICENSE)
+`homebridge-airtouch` · [![GitHub package.json version](https://img.shields.io/github/package-json/v/adrian-ijenko/AirTouch-Homebridge?style=flat-square)](https://github.com/adrian-ijenko/AirTouch-Homebridge)
+[![License](https://img.shields.io/github/license/adrian-ijenko/AirTouch-Homebridge?style=flat-square)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.20.4-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![Homebridge](https://img.shields.io/badge/homebridge-platform%20plugin-CB4494?style=flat-square&logo=homebridge&logoColor=white)](https://homebridge.io/)
 
-[Features](#-features) · [Install](#-installation) · [Config](#-configuration) · [Troubleshooting](#-troubleshooting)
+[Features](#-features) · [Install](#-installation) · [Config](#-configuration) · [Migrating](#migrating-from-homebridge-airtouch2-plus) · [Troubleshooting](#-troubleshooting)
 
 </div>
 
@@ -41,7 +41,7 @@
 
 ### Homebridge UI
 
-1. Open **Plugins** → search **`homebridge-airtouch2-plus`** (if published to npm) **or** use **Install alternate plugin** with the git URL below.
+1. Open **Plugins** → search **`homebridge-airtouch`** (if published to npm) **or** use **Install alternate plugin** with the git URL below.
 2. Install, then restart Homebridge.
 
 ### Command line (same directory Homebridge uses)
@@ -50,20 +50,20 @@ Plugins must live in **that** instance’s `node_modules` (often `/var/lib/homeb
 
 ```bash
 cd /var/lib/homebridge
-npm install homebridge-airtouch2-plus
+npm install homebridge-airtouch
 ```
 
 **Install from GitHub** (always current `main`):
 
 ```bash
 cd /var/lib/homebridge
-npm install "git+https://github.com/adrian-ijenko/aurtouch.git#main"
+npm install "git+https://github.com/adrian-ijenko/AirTouch-Homebridge.git#main"
 ```
 
 Confirm version:
 
 ```bash
-node -p "require('./node_modules/homebridge-airtouch2-plus/package.json').version"
+node -p "require('./node_modules/homebridge-airtouch/package.json').version"
 ```
 
 > **Tip:** After changing code on your PC, **`git push`** to GitHub before reinstalling on the server, or `npm` may keep an older resolved commit.
@@ -72,17 +72,37 @@ Restart Homebridge (e.g. `hb-service restart` or your container restart).
 
 ---
 
+## Migrating from `homebridge-airtouch2-plus`
+
+The npm package was renamed to **`homebridge-airtouch`** (project branding: **AirTouch Homebridge**).
+
+1. Remove the old package and install the new one:
+
+   ```bash
+   cd /var/lib/homebridge
+   npm rm homebridge-airtouch2-plus
+   rm -rf node_modules/homebridge-airtouch2-plus
+   npm install "git+https://github.com/adrian-ijenko/AirTouch-Homebridge.git#main"
+   # or: npm install homebridge-airtouch
+   ```
+
+2. **Config `platform` key:** you can keep **`Airtouch2Plus`** or **`AirTouch2Plus`** (still supported), or update to **`AirTouchHomebridge`** (recommended for new setups).
+
+3. Restart Homebridge.
+
+---
+
 ## ⚙️ Configuration
 
-**Platform name:** `Airtouch2Plus`  
-**Alias in UI:** *AirTouch 2+* (from `config.schema.json`)
+**Platform name (recommended):** `AirTouchHomebridge`  
+**Homebridge UI display:** *AirTouch Homebridge*
 
 ### Minimal example
 
 ```json
 {
-  "platform": "Airtouch2Plus",
-  "name": "AirTouch 2+",
+  "platform": "AirTouchHomebridge",
+  "name": "AirTouch Homebridge",
   "host": "192.168.1.50",
   "units": [
     {
@@ -96,8 +116,8 @@ Restart Homebridge (e.g. `hb-service restart` or your container restart).
 
 ```json
 {
-  "platform": "Airtouch2Plus",
-  "name": "AirTouch 2+",
+  "platform": "AirTouchHomebridge",
+  "name": "AirTouch Homebridge",
   "host": "192.168.1.50",
   "debug": false,
   "pollIntervalMs": 285000,
@@ -126,7 +146,7 @@ Restart Homebridge (e.g. `hb-service restart` or your container restart).
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `host` | string | — | **Required.** Panel IP or hostname (`ip_address` still accepted as legacy alias). |
-| `name` | string | `AirTouch 2+` | Name shown in Homebridge. |
+| `name` | string | `AirTouch Homebridge` | Name shown in Homebridge. |
 | `units` | array | — | **Required.** One entry per AC unit on the panel; index **0** = first AC. Each object needs `fan` (see below). |
 | `units[].fan` | string[] | — | **Required.** Fan step labels, protocol order, e.g. `["AUTO","QUIET","LOW","MEDIUM","HIGH"]`. |
 | `units[].manufacturer` | string | `Polyaire` | HomeKit accessory metadata. |
@@ -160,9 +180,9 @@ Indices match the **wall panel** (first AC = `0`, first zone = `0`).
 | Symptom | What to check |
 | --- | --- |
 | **No response from HomeKit** | Enable **`debug: true`**, change a **zone switch**, and look for **`AirTouch: TX`** in the log. If there is no TX, the write never left the plugin (bridge / accessory issue). |
-| **Stuck on old version after `npm install`** | Remove the package and folder, reinstall from git `#main`, confirm `package.json` version under `node_modules`. Ensure latest commit is **pushed** to GitHub. |
+| **Stuck on old version after `npm install`** | Remove the package and folder, reinstall from git `#main`, confirm `package.json` version under `node_modules/homebridge-airtouch`. Ensure latest commit is **pushed** to GitHub. |
 | **Connection drops** | Panel IP, Wi‑Fi, firewall. Log lines: `connection closed`, `socket down — reconnecting`. |
-| **Wall panel OK, HomeKit not** | Confirm Homebridge logs **`Airtouch2Plus: session ready`** after start. |
+| **Wall panel OK, HomeKit not** | Confirm Homebridge logs **`AirTouch Homebridge: session ready`** after start. |
 
 ### CLI probe (optional)
 
@@ -179,11 +199,13 @@ Uses the same framing as the plugin; useful to verify LAN path to the panel.
 ## 🛠️ Development
 
 ```bash
-git clone https://github.com/adrian-ijenko/aurtouch.git
-cd aurtouch
+git clone https://github.com/adrian-ijenko/AirTouch-Homebridge.git
+cd AirTouch-Homebridge
 npm install
 npm run build
 ```
+
+You can clone into any folder name you prefer; it does not affect the plugin.
 
 TypeScript sources live in `src/`; published entry is `dist/index.js`.
 

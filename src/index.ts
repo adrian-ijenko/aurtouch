@@ -1,5 +1,5 @@
 import type { API } from 'homebridge';
-import { Airtouch2PlusPlatform } from './platform';
+import { AirTouchHomebridgePlatform } from './platform';
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 
 /**
@@ -7,7 +7,8 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
  * @see https://developers.homebridge.io
  */
 export default function register(api: API): void {
-  api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, Airtouch2PlusPlatform);
-  /* Common config typo / display capitalization */
-  api.registerPlatform(PLUGIN_NAME, 'AirTouch2Plus', Airtouch2PlusPlatform);
+  api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, AirTouchHomebridgePlatform);
+  /** @deprecated Previous platform keys — kept so existing configs keep working. */
+  api.registerPlatform(PLUGIN_NAME, 'Airtouch2Plus', AirTouchHomebridgePlatform);
+  api.registerPlatform(PLUGIN_NAME, 'AirTouch2Plus', AirTouchHomebridgePlatform);
 }

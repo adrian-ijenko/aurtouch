@@ -25,7 +25,7 @@ interface UnitConfig {
   fan: string[];
 }
 
-export interface Airtouch2PlusPlatformConfig extends PlatformConfig {
+export interface AirTouchHomebridgePlatformConfig extends PlatformConfig {
   name?: string;
   host?: string;
   ip_address?: string;
@@ -89,7 +89,7 @@ function protocolFanCodeToName(code: number): string | undefined {
   return entry;
 }
 
-export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
+export class AirTouchHomebridgePlatform implements DynamicPlatformPlugin {
   private readonly client: AirtouchClient;
   /** Keyed by AC index / zone index — display names can change via config */
   private readonly acBySerial: Record<number, PlatformAccessory<Ctx>> = {};
@@ -100,16 +100,16 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
 
   constructor(
     public readonly log: Logging,
-    public readonly config: Airtouch2PlusPlatformConfig,
+    public readonly config: AirTouchHomebridgePlatformConfig,
     public readonly api: API
   ) {
     if (!config?.units?.length) {
-      this.log.error('Airtouch2Plus: `units` array is required in config.');
+      this.log.error('AirTouch Homebridge: `units` array is required in config.');
     }
 
     const host = config.host ?? config.ip_address;
     if (!host) {
-      this.log.error('Airtouch2Plus: `host` (or legacy `ip_address`) is required.');
+      this.log.error('AirTouch Homebridge: `host` (or legacy `ip_address`) is required.');
     }
 
     const logger = {
@@ -134,7 +134,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       for (const st of list) this.onGroupStatus(st);
     });
     this.client.on('connected', () => {
-      this.log.info('Airtouch2Plus: session ready');
+      this.log.info('AirTouch Homebridge: session ready');
     });
 
     this.api.on('didFinishLaunching', () => {
@@ -226,7 +226,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       const unitCfg = this.config.units[st.ac_unit_number];
       if (!unitCfg) {
         this.log.warn(
-          `Airtouch2Plus: no config.units[${st.ac_unit_number}] — add an entry for this AC index.`
+          `AirTouch Homebridge: no config.units[${st.ac_unit_number}] — add an entry for this AC index.`
         );
         return;
       }
