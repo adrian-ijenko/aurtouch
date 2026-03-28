@@ -400,6 +400,20 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     } else if (st.ac_mode === 4) {
       currentHvac = Cur.COOL;
       targetHvac = Tgt.COOL;
+    } else if (st.ac_mode === 8) {
+      /* AUTO_HEAT (Polyaire / community enum) */
+      targetHvac = Tgt.AUTO;
+      const d = st.ac_temp - st.ac_target;
+      if (d > 0.5) currentHvac = Cur.COOL;
+      else if (d < -0.5) currentHvac = Cur.HEAT;
+      else currentHvac = Cur.HEAT;
+    } else if (st.ac_mode === 9) {
+      /* AUTO_COOL — your panel reports this while cooling-to-setpoint */
+      targetHvac = Tgt.AUTO;
+      const d = st.ac_temp - st.ac_target;
+      if (d > 0.5) currentHvac = Cur.COOL;
+      else if (d < -0.5) currentHvac = Cur.HEAT;
+      else currentHvac = Cur.COOL;
     } else {
       targetHvac = Tgt.AUTO;
       const d = st.ac_temp - st.ac_target;

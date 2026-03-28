@@ -1,6 +1,6 @@
 {
   "name": "homebridge-airtouch2-plus",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Homebridge platform for Polyaire AirTouch 2+ wall controller (TCP)",
   "main": "dist/index.js",
   "scripts": {

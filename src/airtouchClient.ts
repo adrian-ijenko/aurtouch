@@ -206,8 +206,8 @@ export class AirtouchClient extends EventEmitter {
         const acs = decodeAcStatus(data);
         this.emit('ac_status', acs);
       } else {
-        this.opts.log.warn(
-          `AirTouch: RX unknown sub-message 0x${sub.toString(16)} — panel may use extra message types`
+        this.wire(
+          `AirTouch: RX unknown sub-message 0x${sub.toString(16)} (len=${data.length}) — extra panel telemetry; safe to ignore`
         );
       }
     }
