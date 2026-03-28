@@ -1,0 +1,64 @@
+{
+  "pluginAlias": "Airtouch2Plus",
+  "pluginType": "platform",
+  "singularDisplayName": "AirTouch 2+",
+  "headerDisplay": true,
+  "footerDisplay": false,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "AirTouch 2+",
+        "required": true
+      },
+      "host": {
+        "title": "Controller IP / hostname",
+        "type": "string",
+        "placeholder": "192.168.1.50",
+        "required": true
+      },
+      "ip_address": {
+        "title": "Legacy: IP address (optional if host is set)",
+        "type": "string"
+      },
+      "pollIntervalMs": {
+        "title": "Group status poll interval (ms)",
+        "type": "integer",
+        "default": 285000,
+        "minimum": 5000
+      },
+      "reconnectDelayMs": {
+        "title": "Reconnect delay after error (ms)",
+        "type": "integer",
+        "default": 10000,
+        "minimum": 1000
+      },
+      "acIncludeTemps": {
+        "title": "Reserved: zone temps on AC tile (not used yet)",
+        "type": "boolean",
+        "default": false
+      },
+      "units": {
+        "title": "AC units (index 0 = first unit on the wall panel)",
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "manufacturer": { "type": "string", "default": "Polyaire" },
+            "model": { "type": "string", "default": "AirTouch 2+" },
+            "fan": {
+              "title": "Fan speeds (protocol names)",
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["AUTO", "QUIET", "LOW", "MEDIUM", "HIGH"]
+            }
+          },
+          "required": ["fan"]
+        }
+      }
+    },
+    "required": ["host", "units"]
+  }
+}

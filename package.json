@@ -1,0 +1,33 @@
+{
+  "name": "homebridge-airtouch2-plus",
+  "version": "0.1.0",
+  "description": "Homebridge platform for Polyaire AirTouch 2+ wall controller (TCP)",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "airtouch",
+    "airtouch2",
+    "polyaire",
+    "aircon"
+  ],
+  "engines": {
+    "node": ">=18.20.4",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+  },
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "homebridge": "^1.8.5",
+    "typescript": "^5.4.5"
+  }
+}

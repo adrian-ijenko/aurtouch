@@ -1,0 +1,42 @@
+import { EventEmitter } from 'node:events';
+import { type AcStatus, type GroupStatus } from './protocol';
+export type { AcStatus, GroupStatus };
+export interface AirtouchClientOptions {
+    host: string;
+    port?: number;
+    pollIntervalMs?: number;
+    reconnectDelayMs?: number;
+    log: {
+        debug: (m: string) => void;
+        info: (m: string) => void;
+        warn: (m: string) => void;
+        error: (m: string) => void;
+    };
+}
+/**
+ * TCP client for AirTouch 2+ touch panel (default port 9200).
+ * Emits `ac_status`, `group_status`, `connected`, `disconnected`, `error`.
+ */
+export declare class AirtouchClient extends EventEmitter {
+    private readonly opts;
+    private socket;
+    private rx;
+    private pollTimer;
+    private reconnectTimer;
+    private destroyed;
+    constructor(opts: AirtouchClientOptions);
+    connect(): void;
+    destroy(): void;
+    sendRaw(body: Buffer): void;
+    requestRefresh(): void;
+    acSetHeatingCoolingState(unit: number, state: 0 | 1 | 2 | 3): void;
+    acSetTargetTemperature(unit: number, temp: number): void;
+    acSetFanSpeedNumber(unit: number, speed: number): void;
+    zoneSetActive(group: number, on: boolean): void;
+    zoneSetDamperPosition(group: number, position: number): void;
+    private startPolling;
+    private stopPolling;
+    private scheduleReconnect;
+    private clearReconnect;
+    private drainRx;
+}
