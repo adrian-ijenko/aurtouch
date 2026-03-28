@@ -381,24 +381,41 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
 
   private pushAcState(accessory: PlatformAccessory<AcAccessoryContext>, st: import('./airtouchClient').AcStatus): void {
     const thermo = accessory.getService(this.Service.Thermostat)!;
+    const Cur = this.Characteristic.CurrentHeatingCoolingState;
+    const Tgt = this.Characteristic.TargetHeatingCoolingState;
 
-    let cur: number;
-    if (st.ac_power_state === 0) cur = this.Characteristic.CurrentHeatingCoolingState.OFF;
-    else if (st.ac_mode === 1) cur = this.Characteristic.CurrentHeatingCoolingState.HEAT;
-    else if (st.ac_mode === 4) cur = this.Characteristic.CurrentHeatingCoolingState.COOL;
-    else cur = 3; /* AUTO / indeterminate (DRY, FAN, AUTO); HAP enum may omit AUTO on Current */
+    /** Current* only allows OFF/HEAT/COOL (0–2). Target* also allows AUTO (3). */
+    let currentHvac: number;
+    let targetHvac: number;
 
-    accessory.context.currentHeatingCoolingState = cur;
+    if (st.ac_power_state === 0) {
+      currentHvac = Cur.OFF;
+      targetHvac = Tgt.OFF;
+    } else if (st.ac_mode === 1) {
+      currentHvac = Cur.HEAT;
+      targetHvac = Tgt.HEAT;
+    } else if (st.ac_mode === 4) {
+      currentHvac = Cur.COOL;
+      targetHvac = Tgt.COOL;
+    } else {
+      targetHvac = Tgt.AUTO;
+      const d = st.ac_temp - st.ac_target;
+      if (d > 0.5) currentHvac = Cur.COOL;
+      else if (d < -0.5) currentHvac = Cur.HEAT;
+      else currentHvac = Cur.OFF;
+    }
+
+    accessory.context.currentHeatingCoolingState = currentHvac;
     accessory.context.currentTemperature = st.ac_temp;
 
-    thermo.updateCharacteristic(this.Characteristic.CurrentHeatingCoolingState, cur);
+    thermo.updateCharacteristic(this.Characteristic.CurrentHeatingCoolingState, currentHvac);
     thermo.updateCharacteristic(this.Characteristic.CurrentTemperature, st.ac_temp);
 
     const suppress =
       (accessory.context.suppressPanelTargetsUntil ?? 0) > Date.now();
 
     if (!suppress) {
-      accessory.context.targetHeatingCoolingState = cur;
+      accessory.context.targetHeatingCoolingState = targetHvac;
       accessory.context.targetTemperature = st.ac_target;
 
       const fname = protocolFanCodeToName(st.ac_fan_speed);
@@ -408,7 +425,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
         accessory.context.rotationSpeed = idx * accessory.context.rotationStep;
       }
 
-      thermo.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, cur);
+      thermo.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, targetHvac);
       thermo.updateCharacteristic(this.Characteristic.TargetTemperature, st.ac_target);
       thermo.updateCharacteristic(this.Characteristic.RotationSpeed, accessory.context.rotationSpeed);
     }
