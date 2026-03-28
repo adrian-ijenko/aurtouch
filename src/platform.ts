@@ -12,6 +12,10 @@ import { PLUGIN_NAME, PLATFORM_NAME } from './settings';
 
 const REGISTER_NAME = PLUGIN_NAME;
 
+/** After a HomeKit edit, ignore panel snapshots that would overwrite targets (panel is often briefly stale). */
+const SUPPRESS_PANEL_TARGETS_MS = 3500;
+const SUPPRESS_ZONE_PANEL_MS = 3500;
+
 type FanSpeedName = keyof typeof AC_FAN;
 
 interface UnitConfig {
@@ -55,6 +59,8 @@ interface AcAccessoryContext {
   rotationSpeed: number;
   statusFault: number;
   wired?: boolean;
+  /** While Date.now() < this, do not apply panel values to Target* / fan (HomeKit edits in flight). */
+  suppressPanelTargetsUntil?: number;
 }
 
 interface ZoneAccessoryContext {
@@ -66,6 +72,8 @@ interface ZoneAccessoryContext {
   damperPosition: number;
   targetPosition: number;
   wired?: boolean;
+  /** While Date.now() < this, do not apply panel zone snapshot over Switch/Window. */
+  suppressPanelZoneUntil?: number;
 }
 
 type Ctx = AcAccessoryContext | ZoneAccessoryContext;
@@ -86,6 +94,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
   /** Keyed by AC index / zone index — display names can change via config */
   private readonly acBySerial: Record<number, PlatformAccessory<Ctx>> = {};
   private readonly zoneBySerial: Record<number, PlatformAccessory<Ctx>> = {};
+  private acRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     public readonly log: Logging,
@@ -130,8 +139,18 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     });
 
     this.api.on('shutdown', () => {
+      if (this.acRefreshTimer) clearTimeout(this.acRefreshTimer);
       this.client.destroy();
     });
+  }
+
+  /** Ask the panel for fresh AC + zone status after a command (debounced). */
+  private scheduleStatusRefresh(): void {
+    if (this.acRefreshTimer) clearTimeout(this.acRefreshTimer);
+    this.acRefreshTimer = setTimeout(() => {
+      this.acRefreshTimer = null;
+      this.client.requestRefresh();
+    }, 400);
   }
 
   private get Service() {
@@ -291,9 +310,11 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       .onSet((v: CharacteristicValue) => {
         const val = Number(v) as 0 | 1 | 2 | 3;
         accessory.context.targetHeatingCoolingState = val;
+        accessory.context.suppressPanelTargetsUntil = Date.now() + SUPPRESS_PANEL_TARGETS_MS;
         if (accessory.context.currentHeatingCoolingState !== val) {
           this.client.acSetHeatingCoolingState(accessory.context.serial, val);
         }
+        this.scheduleStatusRefresh();
       });
 
     thermo
@@ -307,7 +328,9 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       .onSet((v: CharacteristicValue) => {
         const t = Number(v);
         accessory.context.targetTemperature = t;
+        accessory.context.suppressPanelTargetsUntil = Date.now() + SUPPRESS_PANEL_TARGETS_MS;
         this.client.acSetTargetTemperature(accessory.context.serial, t);
+        this.scheduleStatusRefresh();
       });
 
     thermo
@@ -337,6 +360,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       .onSet((v: CharacteristicValue) => {
         const rot = Number(v);
         accessory.context.rotationSpeed = rot;
+        accessory.context.suppressPanelTargetsUntil = Date.now() + SUPPRESS_PANEL_TARGETS_MS;
         const step = Math.max(1, accessory.context.rotationStep);
         const idx = Math.min(
           accessory.context.fanNames.length - 1,
@@ -349,6 +373,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
             fanNameToProtocolCode(fname)
           );
         }
+        this.scheduleStatusRefresh();
       });
 
     thermo.getCharacteristic(this.Characteristic.StatusFault).onGet(() => accessory.context.statusFault);
@@ -364,15 +389,28 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     else cur = 3; /* AUTO / indeterminate (DRY, FAN, AUTO); HAP enum may omit AUTO on Current */
 
     accessory.context.currentHeatingCoolingState = cur;
-    accessory.context.targetHeatingCoolingState = cur;
     accessory.context.currentTemperature = st.ac_temp;
-    accessory.context.targetTemperature = st.ac_target;
 
-    const fname = protocolFanCodeToName(st.ac_fan_speed);
-    const usable = fname && fname !== 'KEEP' ? fname : undefined;
-    const idx = usable ? accessory.context.fanNames.indexOf(usable) : -1;
-    if (idx >= 0) {
-      accessory.context.rotationSpeed = idx * accessory.context.rotationStep;
+    thermo.updateCharacteristic(this.Characteristic.CurrentHeatingCoolingState, cur);
+    thermo.updateCharacteristic(this.Characteristic.CurrentTemperature, st.ac_temp);
+
+    const suppress =
+      (accessory.context.suppressPanelTargetsUntil ?? 0) > Date.now();
+
+    if (!suppress) {
+      accessory.context.targetHeatingCoolingState = cur;
+      accessory.context.targetTemperature = st.ac_target;
+
+      const fname = protocolFanCodeToName(st.ac_fan_speed);
+      const usable = fname && fname !== 'KEEP' ? fname : undefined;
+      const idx = usable ? accessory.context.fanNames.indexOf(usable) : -1;
+      if (idx >= 0) {
+        accessory.context.rotationSpeed = idx * accessory.context.rotationStep;
+      }
+
+      thermo.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, cur);
+      thermo.updateCharacteristic(this.Characteristic.TargetTemperature, st.ac_target);
+      thermo.updateCharacteristic(this.Characteristic.RotationSpeed, accessory.context.rotationSpeed);
     }
 
     accessory.context.statusFault =
@@ -380,11 +418,6 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
         ? this.Characteristic.StatusFault.GENERAL_FAULT
         : this.Characteristic.StatusFault.NO_FAULT;
 
-    thermo.updateCharacteristic(this.Characteristic.CurrentHeatingCoolingState, cur);
-    thermo.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, cur);
-    thermo.updateCharacteristic(this.Characteristic.CurrentTemperature, st.ac_temp);
-    thermo.updateCharacteristic(this.Characteristic.TargetTemperature, st.ac_target);
-    thermo.updateCharacteristic(this.Characteristic.RotationSpeed, accessory.context.rotationSpeed);
     thermo.updateCharacteristic(this.Characteristic.StatusFault, accessory.context.statusFault);
 
     accessory.updateReachability(true);
@@ -400,7 +433,9 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       .onSet((v: CharacteristicValue) => {
         const on = Boolean(v);
         accessory.context.active = on;
+        accessory.context.suppressPanelZoneUntil = Date.now() + SUPPRESS_ZONE_PANEL_MS;
         this.client.zoneSetActive(accessory.context.serial, on);
+        this.scheduleStatusRefresh();
       });
 
     const damper = accessory.getServiceById(
@@ -420,7 +455,9 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       .onSet((v: CharacteristicValue) => {
         const p = Number(v);
         accessory.context.targetPosition = p;
+        accessory.context.suppressPanelZoneUntil = Date.now() + SUPPRESS_ZONE_PANEL_MS;
         this.client.zoneSetDamperPosition(accessory.context.serial, p);
+        this.scheduleStatusRefresh();
       });
 
     damper
@@ -432,6 +469,11 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     accessory: PlatformAccessory<ZoneAccessoryContext>,
     st: import('./airtouchClient').GroupStatus
   ): void {
+    if ((accessory.context.suppressPanelZoneUntil ?? 0) > Date.now()) {
+      accessory.updateReachability(true);
+      return;
+    }
+
     const sw = accessory.getService(this.Service.Switch)!;
     const damper = accessory.getServiceById(
       this.Service.Window,

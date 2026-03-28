@@ -38,6 +38,8 @@ interface AcAccessoryContext {
     rotationSpeed: number;
     statusFault: number;
     wired?: boolean;
+    /** While Date.now() < this, do not apply panel values to Target* / fan (HomeKit edits in flight). */
+    suppressPanelTargetsUntil?: number;
 }
 interface ZoneAccessoryContext {
     kind: 'zone';
@@ -48,6 +50,8 @@ interface ZoneAccessoryContext {
     damperPosition: number;
     targetPosition: number;
     wired?: boolean;
+    /** While Date.now() < this, do not apply panel zone snapshot over Switch/Window. */
+    suppressPanelZoneUntil?: number;
 }
 type Ctx = AcAccessoryContext | ZoneAccessoryContext;
 export declare class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
@@ -58,7 +62,10 @@ export declare class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     /** Keyed by AC index / zone index — display names can change via config */
     private readonly acBySerial;
     private readonly zoneBySerial;
+    private acRefreshTimer;
     constructor(log: Logging, config: Airtouch2PlusPlatformConfig, api: API);
+    /** Ask the panel for fresh AC + zone status after a command (debounced). */
+    private scheduleStatusRefresh;
     private get Service();
     private get Characteristic();
     configureAccessory(accessory: PlatformAccessory<Ctx>): void;

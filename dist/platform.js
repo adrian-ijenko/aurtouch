@@ -5,6 +5,9 @@ const airtouchClient_1 = require("./airtouchClient");
 const protocol_1 = require("./protocol");
 const settings_1 = require("./settings");
 const REGISTER_NAME = settings_1.PLUGIN_NAME;
+/** After a HomeKit edit, ignore panel snapshots that would overwrite targets (panel is often briefly stale). */
+const SUPPRESS_PANEL_TARGETS_MS = 3500;
+const SUPPRESS_ZONE_PANEL_MS = 3500;
 function fanNameToProtocolCode(name) {
     const key = name.toUpperCase().replace(/\s+/g, '_');
     if (key in protocol_1.AC_FAN && key !== 'KEEP')
@@ -23,6 +26,7 @@ class Airtouch2PlusPlatform {
     /** Keyed by AC index / zone index — display names can change via config */
     acBySerial = {};
     zoneBySerial = {};
+    acRefreshTimer = null;
     constructor(log, config, api) {
         this.log = log;
         this.config = config;
@@ -62,8 +66,19 @@ class Airtouch2PlusPlatform {
                 this.client.connect();
         });
         this.api.on('shutdown', () => {
+            if (this.acRefreshTimer)
+                clearTimeout(this.acRefreshTimer);
             this.client.destroy();
         });
+    }
+    /** Ask the panel for fresh AC + zone status after a command (debounced). */
+    scheduleStatusRefresh() {
+        if (this.acRefreshTimer)
+            clearTimeout(this.acRefreshTimer);
+        this.acRefreshTimer = setTimeout(() => {
+            this.acRefreshTimer = null;
+            this.client.requestRefresh();
+        }, 400);
     }
     get Service() {
         return this.api.hap.Service;
@@ -207,9 +222,11 @@ class Airtouch2PlusPlatform {
             .onSet((v) => {
             const val = Number(v);
             accessory.context.targetHeatingCoolingState = val;
+            accessory.context.suppressPanelTargetsUntil = Date.now() + SUPPRESS_PANEL_TARGETS_MS;
             if (accessory.context.currentHeatingCoolingState !== val) {
                 this.client.acSetHeatingCoolingState(accessory.context.serial, val);
             }
+            this.scheduleStatusRefresh();
         });
         thermo
             .getCharacteristic(this.Characteristic.CurrentTemperature)
@@ -221,7 +238,9 @@ class Airtouch2PlusPlatform {
             .onSet((v) => {
             const t = Number(v);
             accessory.context.targetTemperature = t;
+            accessory.context.suppressPanelTargetsUntil = Date.now() + SUPPRESS_PANEL_TARGETS_MS;
             this.client.acSetTargetTemperature(accessory.context.serial, t);
+            this.scheduleStatusRefresh();
         });
         thermo
             .getCharacteristic(this.Characteristic.TemperatureDisplayUnits)
@@ -247,12 +266,14 @@ class Airtouch2PlusPlatform {
             .onSet((v) => {
             const rot = Number(v);
             accessory.context.rotationSpeed = rot;
+            accessory.context.suppressPanelTargetsUntil = Date.now() + SUPPRESS_PANEL_TARGETS_MS;
             const step = Math.max(1, accessory.context.rotationStep);
             const idx = Math.min(accessory.context.fanNames.length - 1, Math.max(0, Math.round(rot / step)));
             const fname = accessory.context.fanNames[idx] ?? accessory.context.fanNames[0];
             if (fname) {
                 this.client.acSetFanSpeedNumber(accessory.context.serial, fanNameToProtocolCode(fname));
             }
+            this.scheduleStatusRefresh();
         });
         thermo.getCharacteristic(this.Characteristic.StatusFault).onGet(() => accessory.context.statusFault);
     }
@@ -268,24 +289,27 @@ class Airtouch2PlusPlatform {
         else
             cur = 3; /* AUTO / indeterminate (DRY, FAN, AUTO); HAP enum may omit AUTO on Current */
         accessory.context.currentHeatingCoolingState = cur;
-        accessory.context.targetHeatingCoolingState = cur;
         accessory.context.currentTemperature = st.ac_temp;
-        accessory.context.targetTemperature = st.ac_target;
-        const fname = protocolFanCodeToName(st.ac_fan_speed);
-        const usable = fname && fname !== 'KEEP' ? fname : undefined;
-        const idx = usable ? accessory.context.fanNames.indexOf(usable) : -1;
-        if (idx >= 0) {
-            accessory.context.rotationSpeed = idx * accessory.context.rotationStep;
+        thermo.updateCharacteristic(this.Characteristic.CurrentHeatingCoolingState, cur);
+        thermo.updateCharacteristic(this.Characteristic.CurrentTemperature, st.ac_temp);
+        const suppress = (accessory.context.suppressPanelTargetsUntil ?? 0) > Date.now();
+        if (!suppress) {
+            accessory.context.targetHeatingCoolingState = cur;
+            accessory.context.targetTemperature = st.ac_target;
+            const fname = protocolFanCodeToName(st.ac_fan_speed);
+            const usable = fname && fname !== 'KEEP' ? fname : undefined;
+            const idx = usable ? accessory.context.fanNames.indexOf(usable) : -1;
+            if (idx >= 0) {
+                accessory.context.rotationSpeed = idx * accessory.context.rotationStep;
+            }
+            thermo.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, cur);
+            thermo.updateCharacteristic(this.Characteristic.TargetTemperature, st.ac_target);
+            thermo.updateCharacteristic(this.Characteristic.RotationSpeed, accessory.context.rotationSpeed);
         }
         accessory.context.statusFault =
             st.ac_error_code !== 0
                 ? this.Characteristic.StatusFault.GENERAL_FAULT
                 : this.Characteristic.StatusFault.NO_FAULT;
-        thermo.updateCharacteristic(this.Characteristic.CurrentHeatingCoolingState, cur);
-        thermo.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, cur);
-        thermo.updateCharacteristic(this.Characteristic.CurrentTemperature, st.ac_temp);
-        thermo.updateCharacteristic(this.Characteristic.TargetTemperature, st.ac_target);
-        thermo.updateCharacteristic(this.Characteristic.RotationSpeed, accessory.context.rotationSpeed);
         thermo.updateCharacteristic(this.Characteristic.StatusFault, accessory.context.statusFault);
         accessory.updateReachability(true);
     }
@@ -299,7 +323,9 @@ class Airtouch2PlusPlatform {
             .onSet((v) => {
             const on = Boolean(v);
             accessory.context.active = on;
+            accessory.context.suppressPanelZoneUntil = Date.now() + SUPPRESS_ZONE_PANEL_MS;
             this.client.zoneSetActive(accessory.context.serial, on);
+            this.scheduleStatusRefresh();
         });
         const damper = accessory.getServiceById(this.Service.Window, this.zoneDamperSubtype(accessory.context.serial));
         if (!damper)
@@ -314,13 +340,19 @@ class Airtouch2PlusPlatform {
             .onSet((v) => {
             const p = Number(v);
             accessory.context.targetPosition = p;
+            accessory.context.suppressPanelZoneUntil = Date.now() + SUPPRESS_ZONE_PANEL_MS;
             this.client.zoneSetDamperPosition(accessory.context.serial, p);
+            this.scheduleStatusRefresh();
         });
         damper
             .getCharacteristic(this.Characteristic.PositionState)
             .onGet(() => this.Characteristic.PositionState.STOPPED);
     }
     pushZoneState(accessory, st) {
+        if ((accessory.context.suppressPanelZoneUntil ?? 0) > Date.now()) {
+            accessory.updateReachability(true);
+            return;
+        }
         const sw = accessory.getService(this.Service.Switch);
         const damper = accessory.getServiceById(this.Service.Window, this.zoneDamperSubtype(accessory.context.serial));
         const on = st.group_power_state % 2 === 1;
