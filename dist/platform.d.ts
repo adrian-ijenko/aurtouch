@@ -13,6 +13,16 @@ export interface Airtouch2PlusPlatformConfig extends PlatformConfig {
     pollIntervalMs?: number;
     reconnectDelayMs?: number;
     units: UnitConfig[];
+    /**
+     * Labels for AC units by index (as on the panel: first AC = 0).
+     * Object: { "0": "Upstairs", "1": "Downstairs" } or array: ["Upstairs", "Downstairs"]
+     */
+    acNames?: Record<string, string> | string[];
+    /**
+     * Zone / group labels by index (first zone = 0).
+     * Object: { "0": "Living Room", "1": "Bedroom 1" } or array matching zone order
+     */
+    zoneNames?: Record<string, string> | string[];
 }
 interface AcAccessoryContext {
     kind: 'ac';
@@ -45,12 +55,18 @@ export declare class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     readonly config: Airtouch2PlusPlatformConfig;
     readonly api: API;
     private readonly client;
-    private readonly acByName;
-    private readonly zoneByName;
+    /** Keyed by AC index / zone index — display names can change via config */
+    private readonly acBySerial;
+    private readonly zoneBySerial;
     constructor(log: Logging, config: Airtouch2PlusPlatformConfig, api: API);
     private get Service();
     private get Characteristic();
     configureAccessory(accessory: PlatformAccessory<Ctx>): void;
+    private resolveAcName;
+    private resolveZoneName;
+    private zoneDamperSubtype;
+    private syncAcLabels;
+    private syncZoneLabels;
     private onAcStatus;
     private onGroupStatus;
     private wireAcAccessory;

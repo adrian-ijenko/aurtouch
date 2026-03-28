@@ -29,6 +29,16 @@ export interface Airtouch2PlusPlatformConfig extends PlatformConfig {
   pollIntervalMs?: number;
   reconnectDelayMs?: number;
   units: UnitConfig[];
+  /**
+   * Labels for AC units by index (as on the panel: first AC = 0).
+   * Object: { "0": "Upstairs", "1": "Downstairs" } or array: ["Upstairs", "Downstairs"]
+   */
+  acNames?: Record<string, string> | string[];
+  /**
+   * Zone / group labels by index (first zone = 0).
+   * Object: { "0": "Living Room", "1": "Bedroom 1" } or array matching zone order
+   */
+  zoneNames?: Record<string, string> | string[];
 }
 
 interface AcAccessoryContext {
@@ -73,8 +83,9 @@ function protocolFanCodeToName(code: number): string | undefined {
 
 export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
   private readonly client: AirtouchClient;
-  private readonly acByName: Record<string, PlatformAccessory<Ctx>> = {};
-  private readonly zoneByName: Record<string, PlatformAccessory<Ctx>> = {};
+  /** Keyed by AC index / zone index — display names can change via config */
+  private readonly acBySerial: Record<number, PlatformAccessory<Ctx>> = {};
+  private readonly zoneBySerial: Record<number, PlatformAccessory<Ctx>> = {};
 
   constructor(
     public readonly log: Logging,
@@ -134,18 +145,61 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
   configureAccessory(accessory: PlatformAccessory<Ctx>): void {
     const ctx = accessory.context;
     if (ctx.kind === 'ac') {
-      this.acByName[accessory.displayName] = accessory;
+      this.acBySerial[ctx.serial] = accessory;
+      this.syncAcLabels(accessory as PlatformAccessory<AcAccessoryContext>);
       this.wireAcAccessory(accessory as PlatformAccessory<AcAccessoryContext>);
     } else if (ctx.kind === 'zone') {
-      this.zoneByName[accessory.displayName] = accessory;
+      this.zoneBySerial[ctx.serial] = accessory;
+      this.syncZoneLabels(accessory as PlatformAccessory<ZoneAccessoryContext>);
       this.wireZoneAccessory(accessory as PlatformAccessory<ZoneAccessoryContext>);
     }
     accessory.updateReachability(true);
   }
 
+  private resolveAcName(index: number): string {
+    const m = this.config.acNames;
+    if (!m) return `AC ${index}`;
+    if (Array.isArray(m)) return m[index]?.trim() || `AC ${index}`;
+    const v = m[String(index)];
+    return (typeof v === 'string' && v.trim() !== '' ? v : null) ?? `AC ${index}`;
+  }
+
+  private resolveZoneName(index: number): string {
+    const m = this.config.zoneNames;
+    if (!m) return `Zone ${index}`;
+    if (Array.isArray(m)) return m[index]?.trim() || `Zone ${index}`;
+    const v = m[String(index)];
+    return (typeof v === 'string' && v.trim() !== '' ? v : null) ?? `Zone ${index}`;
+  }
+
+  private zoneDamperSubtype(serial: number): string {
+    return `Zone ${serial}-damper`;
+  }
+
+  private syncAcLabels(accessory: PlatformAccessory<AcAccessoryContext>): void {
+    const label = this.resolveAcName(accessory.context.serial);
+    if (accessory.displayName !== label) {
+      accessory.displayName = label;
+    }
+    accessory
+      .getService(this.Service.Thermostat)
+      ?.updateCharacteristic(this.Characteristic.Name, label);
+  }
+
+  private syncZoneLabels(accessory: PlatformAccessory<ZoneAccessoryContext>): void {
+    const label = this.resolveZoneName(accessory.context.serial);
+    if (accessory.displayName !== label) {
+      accessory.displayName = label;
+    }
+    const sw = accessory.getService(this.Service.Switch);
+    sw?.updateCharacteristic(this.Characteristic.Name, label);
+    const damper = accessory.getServiceById(this.Service.Window, this.zoneDamperSubtype(accessory.context.serial));
+    damper?.updateCharacteristic(this.Characteristic.Name, `${label} Damper`);
+  }
+
   private onAcStatus(st: import('./airtouchClient').AcStatus): void {
-    const name = `AC ${st.ac_unit_number}`;
-    let acc = this.acByName[name];
+    const name = this.resolveAcName(st.ac_unit_number);
+    let acc = this.acBySerial[st.ac_unit_number];
     if (!acc) {
       const unitCfg = this.config.units[st.ac_unit_number];
       if (!unitCfg) {
@@ -180,15 +234,16 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
 
       acc.addService(this.Service.Thermostat, name);
       this.wireAcAccessory(acc as PlatformAccessory<AcAccessoryContext>);
-      this.acByName[name] = acc;
+      this.acBySerial[st.ac_unit_number] = acc;
       this.api.registerPlatformAccessories(REGISTER_NAME, PLATFORM_NAME, [acc]);
     }
+    this.syncAcLabels(acc as PlatformAccessory<AcAccessoryContext>);
     this.pushAcState(acc as PlatformAccessory<AcAccessoryContext>, st);
   }
 
   private onGroupStatus(st: import('./airtouchClient').GroupStatus): void {
-    const name = `Zone ${st.group_number}`;
-    let acc = this.zoneByName[name];
+    const name = this.resolveZoneName(st.group_number);
+    let acc = this.zoneBySerial[st.group_number];
     if (!acc) {
       const uuid = this.api.hap.uuid.generate(`${REGISTER_NAME}:zone:${st.group_number}`);
       acc = new this.api.platformAccessory(name, uuid);
@@ -208,14 +263,15 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
         .setCharacteristic(this.Characteristic.SerialNumber, String(st.group_number));
 
       acc.addService(this.Service.Switch, name);
-      const damperSubtype = `${name}-damper`;
+      const damperSubtype = this.zoneDamperSubtype(st.group_number);
       const damper = acc.addService(this.Service.Window, `${name} Damper`, damperSubtype);
       acc.getService(this.Service.Switch)!.addLinkedService(damper);
 
       this.wireZoneAccessory(acc as PlatformAccessory<ZoneAccessoryContext>);
-      this.zoneByName[name] = acc;
+      this.zoneBySerial[st.group_number] = acc;
       this.api.registerPlatformAccessories(REGISTER_NAME, PLATFORM_NAME, [acc]);
     }
+    this.syncZoneLabels(acc as PlatformAccessory<ZoneAccessoryContext>);
     this.pushZoneState(acc as PlatformAccessory<ZoneAccessoryContext>, st);
   }
 
@@ -349,7 +405,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
 
     const damper = accessory.getServiceById(
       this.Service.Window,
-      `${accessory.displayName}-damper`
+      this.zoneDamperSubtype(accessory.context.serial)
     );
     if (!damper) return;
 
@@ -379,7 +435,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     const sw = accessory.getService(this.Service.Switch)!;
     const damper = accessory.getServiceById(
       this.Service.Window,
-      `${accessory.displayName}-damper`
+      this.zoneDamperSubtype(accessory.context.serial)
     );
 
     const on = st.group_power_state % 2 === 1;

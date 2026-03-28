@@ -40,6 +40,22 @@
         "type": "boolean",
         "default": false
       },
+      "acNames": {
+        "title": "AC display names by index (match wall panel: 0 = first AC)",
+        "description": "Use object keys \"0\",\"1\"… or a JSON array in raw config.",
+        "type": "object",
+        "patternProperties": {
+          "^[0-9]+$": { "type": "string" }
+        }
+      },
+      "zoneNames": {
+        "title": "Zone display names by index (0 = first zone / group)",
+        "description": "Match names from AirTouch Group Name settings. Object keys \"0\",\"1\"… or array in raw config.",
+        "type": "object",
+        "patternProperties": {
+          "^[0-9]+$": { "type": "string" }
+        }
+      },
       "units": {
         "title": "AC units (index 0 = first unit on the wall panel)",
         "type": "array",
