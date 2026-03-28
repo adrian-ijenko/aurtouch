@@ -60,7 +60,6 @@ interface AcAccessoryContext {
   targetTemperature: number;
   rotationSpeed: number;
   statusFault: number;
-  wired?: boolean;
   /** While Date.now() < this, do not apply panel values to Target* / fan (HomeKit edits in flight). */
   suppressPanelTargetsUntil?: number;
 }
@@ -73,7 +72,6 @@ interface ZoneAccessoryContext {
   active: boolean;
   damperPosition: number;
   targetPosition: number;
-  wired?: boolean;
   /** While Date.now() < this, do not apply panel zone snapshot over Switch/Window. */
   suppressPanelZoneUntil?: number;
 }
@@ -97,6 +95,8 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
   private readonly acBySerial: Record<number, PlatformAccessory<Ctx>> = {};
   private readonly zoneBySerial: Record<number, PlatformAccessory<Ctx>> = {};
   private acRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  /** In-memory only — never persist. Context `wired` was persisted and skipped re-wiring after restart. */
+  private readonly accessoryHandlersWired = new Set<string>();
 
   constructor(
     public readonly log: Logging,
@@ -298,8 +298,8 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
   }
 
   private wireAcAccessory(accessory: PlatformAccessory<AcAccessoryContext>): void {
-    if (accessory.context.wired) return;
-    accessory.context.wired = true;
+    if (this.accessoryHandlersWired.has(accessory.UUID)) return;
+    this.accessoryHandlersWired.add(accessory.UUID);
 
     const thermo = accessory.getService(this.Service.Thermostat)!;
 
@@ -458,8 +458,8 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
   }
 
   private wireZoneAccessory(accessory: PlatformAccessory<ZoneAccessoryContext>): void {
-    if (accessory.context.wired) return;
-    accessory.context.wired = true;
+    if (this.accessoryHandlersWired.has(accessory.UUID)) return;
+    this.accessoryHandlersWired.add(accessory.UUID);
 
     const sw = accessory.getService(this.Service.Switch)!;
     sw.getCharacteristic(this.Characteristic.On)

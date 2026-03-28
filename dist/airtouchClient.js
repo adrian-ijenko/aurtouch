@@ -48,6 +48,8 @@ class AirtouchClient extends node_events_1.EventEmitter {
     pollTimer = null;
     reconnectTimer = null;
     destroyed = false;
+    /** Commands issued while the socket is down (HomeKit would otherwise silently do nothing). */
+    outboundQueue = [];
     constructor(opts) {
         super();
         this.opts = opts;
@@ -58,11 +60,26 @@ class AirtouchClient extends node_events_1.EventEmitter {
         else
             this.opts.log.debug(msg);
     }
+    isSocketOpen() {
+        const s = this.socket;
+        return !!s && !s.destroyed && s.readyState === 'open';
+    }
     connect() {
         if (this.destroyed)
             return;
         const port = this.opts.port ?? 9200;
+        const s = this.socket;
+        if (s && !s.destroyed && (s.readyState === 'open' || s.readyState === 'opening')) {
+            return;
+        }
         this.clearReconnect();
+        try {
+            this.socket?.removeAllListeners();
+            this.socket?.destroy();
+        }
+        catch {
+            /* ignore */
+        }
         this.socket = new net.Socket();
         this.socket.setKeepAlive(true, 30000);
         this.socket.on('connect', () => {
@@ -72,6 +89,7 @@ class AirtouchClient extends node_events_1.EventEmitter {
             setTimeout(() => this.sendRaw((0, protocol_1.requestGroupStatus)()), 2000);
             if (!this.opts.disableAutoPolling)
                 this.startPolling();
+            this.flushOutboundQueue();
         });
         this.socket.on('data', (chunk) => {
             this.rx = Buffer.concat([this.rx, chunk]);
@@ -80,6 +98,7 @@ class AirtouchClient extends node_events_1.EventEmitter {
         this.socket.on('close', () => {
             this.opts.log.warn('AirTouch: connection closed');
             this.stopPolling();
+            this.socket = null;
             this.emit('disconnected');
             this.scheduleReconnect();
         });
@@ -99,6 +118,7 @@ class AirtouchClient extends node_events_1.EventEmitter {
         this.destroyed = true;
         this.clearReconnect();
         this.stopPolling();
+        this.outboundQueue = [];
         try {
             this.socket?.destroy();
         }
@@ -108,11 +128,42 @@ class AirtouchClient extends node_events_1.EventEmitter {
         this.socket = null;
     }
     sendRaw(body) {
-        if (!this.socket || this.socket.destroyed)
+        if (this.destroyed)
+            return;
+        if (!this.isSocketOpen()) {
+            while (this.outboundQueue.length >= 64) {
+                this.outboundQueue.shift();
+                this.opts.log.warn('AirTouch: outbound queue overflow; dropped oldest command');
+            }
+            this.outboundQueue.push(body);
+            const s = this.socket;
+            const opening = !!s && !s.destroyed && s.readyState === 'opening';
+            const needConnect = !opening && (!s || s.destroyed || s.readyState === 'closed');
+            if (needConnect) {
+                this.clearReconnect();
+                if (this.outboundQueue.length === 1) {
+                    this.opts.log.info('AirTouch: socket down — reconnecting to send queued commands');
+                }
+                this.connect();
+            }
+            return;
+        }
+        const sock = this.socket;
+        if (!sock)
             return;
         const frame = (0, protocol_1.buildFrame)(body);
         this.wire(`AirTouch: TX sub=0x${body[0].toString(16)} payload=${body.toString('hex')} frame=${frame.toString('hex')}`);
-        this.socket.write(frame);
+        sock.write(frame);
+    }
+    flushOutboundQueue() {
+        if (!this.isSocketOpen())
+            return;
+        while (this.outboundQueue.length > 0) {
+            const body = this.outboundQueue.shift();
+            const frame = (0, protocol_1.buildFrame)(body);
+            this.wire(`AirTouch: TX (queued) sub=0x${body[0].toString(16)} payload=${body.toString('hex')} frame=${frame.toString('hex')}`);
+            this.socket.write(frame);
+        }
     }
     requestRefresh() {
         this.sendRaw((0, protocol_1.requestAcStatus)());

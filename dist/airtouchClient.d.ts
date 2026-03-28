@@ -28,11 +28,15 @@ export declare class AirtouchClient extends EventEmitter {
     private pollTimer;
     private reconnectTimer;
     private destroyed;
+    /** Commands issued while the socket is down (HomeKit would otherwise silently do nothing). */
+    private outboundQueue;
     constructor(opts: AirtouchClientOptions);
     private wire;
+    private isSocketOpen;
     connect(): void;
     destroy(): void;
     sendRaw(body: Buffer): void;
+    private flushOutboundQueue;
     requestRefresh(): void;
     acSetHeatingCoolingState(unit: number, state: 0 | 1 | 2 | 3): void;
     acSetTargetTemperature(unit: number, temp: number): void;

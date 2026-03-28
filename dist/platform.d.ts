@@ -39,7 +39,6 @@ interface AcAccessoryContext {
     targetTemperature: number;
     rotationSpeed: number;
     statusFault: number;
-    wired?: boolean;
     /** While Date.now() < this, do not apply panel values to Target* / fan (HomeKit edits in flight). */
     suppressPanelTargetsUntil?: number;
 }
@@ -51,7 +50,6 @@ interface ZoneAccessoryContext {
     active: boolean;
     damperPosition: number;
     targetPosition: number;
-    wired?: boolean;
     /** While Date.now() < this, do not apply panel zone snapshot over Switch/Window. */
     suppressPanelZoneUntil?: number;
 }
@@ -65,6 +63,8 @@ export declare class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
     private readonly acBySerial;
     private readonly zoneBySerial;
     private acRefreshTimer;
+    /** In-memory only — never persist. Context `wired` was persisted and skipped re-wiring after restart. */
+    private readonly accessoryHandlersWired;
     constructor(log: Logging, config: Airtouch2PlusPlatformConfig, api: API);
     /** Ask the panel for fresh AC + zone status after a command (debounced). */
     private scheduleStatusRefresh;

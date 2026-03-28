@@ -27,6 +27,8 @@ class Airtouch2PlusPlatform {
     acBySerial = {};
     zoneBySerial = {};
     acRefreshTimer = null;
+    /** In-memory only — never persist. Context `wired` was persisted and skipped re-wiring after restart. */
+    accessoryHandlersWired = new Set();
     constructor(log, config, api) {
         this.log = log;
         this.config = config;
@@ -210,9 +212,9 @@ class Airtouch2PlusPlatform {
         this.pushZoneState(acc, st);
     }
     wireAcAccessory(accessory) {
-        if (accessory.context.wired)
+        if (this.accessoryHandlersWired.has(accessory.UUID))
             return;
-        accessory.context.wired = true;
+        this.accessoryHandlersWired.add(accessory.UUID);
         const thermo = accessory.getService(this.Service.Thermostat);
         thermo
             .getCharacteristic(this.Characteristic.CurrentHeatingCoolingState)
@@ -355,9 +357,9 @@ class Airtouch2PlusPlatform {
         accessory.updateReachability(true);
     }
     wireZoneAccessory(accessory) {
-        if (accessory.context.wired)
+        if (this.accessoryHandlersWired.has(accessory.UUID))
             return;
-        accessory.context.wired = true;
+        this.accessoryHandlersWired.add(accessory.UUID);
         const sw = accessory.getService(this.Service.Switch);
         sw.getCharacteristic(this.Characteristic.On)
             .onGet(() => accessory.context.active)
