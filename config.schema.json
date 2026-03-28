@@ -40,6 +40,11 @@
         "type": "boolean",
         "default": false
       },
+      "debug": {
+        "title": "Verbose TCP log (TX/RX hex in Homebridge log)",
+        "type": "boolean",
+        "default": false
+      },
       "acNames": {
         "title": "AC display names by index (match wall panel: 0 = first AC)",
         "description": "Use object keys \"0\",\"1\"… or a JSON array in raw config.",

@@ -48,6 +48,7 @@ class Airtouch2PlusPlatform {
             host: host ?? '0.0.0.0',
             pollIntervalMs: config.pollIntervalMs,
             reconnectDelayMs: config.reconnectDelayMs,
+            verboseWire: !!config.debug,
             log: logger,
         });
         this.client.on('ac_status', (list) => {

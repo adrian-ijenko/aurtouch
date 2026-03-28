@@ -23,6 +23,8 @@ export interface Airtouch2PlusPlatformConfig extends PlatformConfig {
      * Object: { "0": "Living Room", "1": "Bedroom 1" } or array matching zone order
      */
     zoneNames?: Record<string, string> | string[];
+    /** Log raw TCP frames (TX/RX hex) at info level for troubleshooting. */
+    debug?: boolean;
 }
 interface AcAccessoryContext {
     kind: 'ac';

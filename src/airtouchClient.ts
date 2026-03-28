@@ -27,6 +27,10 @@ export interface AirtouchClientOptions {
   port?: number;
   pollIntervalMs?: number;
   reconnectDelayMs?: number;
+  /** Log every TCP frame payload (hex) at info level — use platform `debug: true`. */
+  verboseWire?: boolean;
+  /** Do not start periodic group-status polling (for CLI probe tools). */
+  disableAutoPolling?: boolean;
   log: { debug: (m: string) => void; info: (m: string) => void; warn: (m: string) => void; error: (m: string) => void };
 }
 
@@ -45,6 +49,11 @@ export class AirtouchClient extends EventEmitter {
     super();
   }
 
+  private wire(msg: string): void {
+    if (this.opts.verboseWire) this.opts.log.info(msg);
+    else this.opts.log.debug(msg);
+  }
+
   connect(): void {
     if (this.destroyed) return;
     const port = this.opts.port ?? 9200;
@@ -57,7 +66,7 @@ export class AirtouchClient extends EventEmitter {
       this.emit('connected');
       this.sendRaw(requestAcStatus());
       setTimeout(() => this.sendRaw(requestGroupStatus()), 2000);
-      this.startPolling();
+      if (!this.opts.disableAutoPolling) this.startPolling();
     });
 
     this.socket.on('data', (chunk: Buffer) => {
@@ -100,7 +109,7 @@ export class AirtouchClient extends EventEmitter {
   sendRaw(body: Buffer): void {
     if (!this.socket || this.socket.destroyed) return;
     const frame = buildFrame(body);
-    this.opts.log.debug(`AirTouch: send ${body[0].toString(16)} (${frame.length}b)`);
+    this.wire(`AirTouch: TX sub=0x${body[0].toString(16)} payload=${body.toString('hex')} frame=${frame.toString('hex')}`);
     this.socket.write(frame);
   }
 
@@ -187,6 +196,8 @@ export class AirtouchClient extends EventEmitter {
         continue;
       }
 
+      this.wire(`AirTouch: RX data=${data.toString('hex')} (len=${data.length})`);
+
       const sub = data[0];
       if (sub === SUBMSG_GROUP_STAT) {
         const groups = decodeGroupStatus(data);
@@ -194,6 +205,10 @@ export class AirtouchClient extends EventEmitter {
       } else if (sub === SUBMSG_AC_STAT) {
         const acs = decodeAcStatus(data);
         this.emit('ac_status', acs);
+      } else {
+        this.opts.log.warn(
+          `AirTouch: RX unknown sub-message 0x${sub.toString(16)} — panel may use extra message types`
+        );
       }
     }
   }

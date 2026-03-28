@@ -52,6 +52,12 @@ class AirtouchClient extends node_events_1.EventEmitter {
         super();
         this.opts = opts;
     }
+    wire(msg) {
+        if (this.opts.verboseWire)
+            this.opts.log.info(msg);
+        else
+            this.opts.log.debug(msg);
+    }
     connect() {
         if (this.destroyed)
             return;
@@ -64,7 +70,8 @@ class AirtouchClient extends node_events_1.EventEmitter {
             this.emit('connected');
             this.sendRaw((0, protocol_1.requestAcStatus)());
             setTimeout(() => this.sendRaw((0, protocol_1.requestGroupStatus)()), 2000);
-            this.startPolling();
+            if (!this.opts.disableAutoPolling)
+                this.startPolling();
         });
         this.socket.on('data', (chunk) => {
             this.rx = Buffer.concat([this.rx, chunk]);
@@ -104,7 +111,7 @@ class AirtouchClient extends node_events_1.EventEmitter {
         if (!this.socket || this.socket.destroyed)
             return;
         const frame = (0, protocol_1.buildFrame)(body);
-        this.opts.log.debug(`AirTouch: send ${body[0].toString(16)} (${frame.length}b)`);
+        this.wire(`AirTouch: TX sub=0x${body[0].toString(16)} payload=${body.toString('hex')} frame=${frame.toString('hex')}`);
         this.socket.write(frame);
     }
     requestRefresh() {
@@ -182,6 +189,7 @@ class AirtouchClient extends node_events_1.EventEmitter {
                 this.opts.log.warn('AirTouch: CRC mismatch, dropping frame');
                 continue;
             }
+            this.wire(`AirTouch: RX data=${data.toString('hex')} (len=${data.length})`);
             const sub = data[0];
             if (sub === protocol_1.SUBMSG_GROUP_STAT) {
                 const groups = (0, protocol_1.decodeGroupStatus)(data);
@@ -190,6 +198,9 @@ class AirtouchClient extends node_events_1.EventEmitter {
             else if (sub === protocol_1.SUBMSG_AC_STAT) {
                 const acs = (0, protocol_1.decodeAcStatus)(data);
                 this.emit('ac_status', acs);
+            }
+            else {
+                this.opts.log.warn(`AirTouch: RX unknown sub-message 0x${sub.toString(16)} — panel may use extra message types`);
             }
         }
     }

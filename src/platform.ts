@@ -43,6 +43,8 @@ export interface Airtouch2PlusPlatformConfig extends PlatformConfig {
    * Object: { "0": "Living Room", "1": "Bedroom 1" } or array matching zone order
    */
   zoneNames?: Record<string, string> | string[];
+  /** Log raw TCP frames (TX/RX hex) at info level for troubleshooting. */
+  debug?: boolean;
 }
 
 interface AcAccessoryContext {
@@ -121,6 +123,7 @@ export class Airtouch2PlusPlatform implements DynamicPlatformPlugin {
       host: host ?? '0.0.0.0',
       pollIntervalMs: config.pollIntervalMs,
       reconnectDelayMs: config.reconnectDelayMs,
+      verboseWire: !!config.debug,
       log: logger,
     });
 

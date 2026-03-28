@@ -6,6 +6,10 @@ export interface AirtouchClientOptions {
     port?: number;
     pollIntervalMs?: number;
     reconnectDelayMs?: number;
+    /** Log every TCP frame payload (hex) at info level — use platform `debug: true`. */
+    verboseWire?: boolean;
+    /** Do not start periodic group-status polling (for CLI probe tools). */
+    disableAutoPolling?: boolean;
     log: {
         debug: (m: string) => void;
         info: (m: string) => void;
@@ -25,6 +29,7 @@ export declare class AirtouchClient extends EventEmitter {
     private reconnectTimer;
     private destroyed;
     constructor(opts: AirtouchClientOptions);
+    private wire;
     connect(): void;
     destroy(): void;
     sendRaw(body: Buffer): void;
