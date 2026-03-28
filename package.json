@@ -29,6 +29,10 @@
     "url": "https://github.com/adrian-ijenko/aurtouch/issues"
   },
   "homepage": "https://github.com/adrian-ijenko/aurtouch#readme",
+  "homebridge": {
+    "pluginAlias": "Airtouch2Plus",
+    "pluginType": "platform"
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "homebridge": "^1.8.5",

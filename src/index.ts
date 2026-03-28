@@ -8,4 +8,6 @@ import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
  */
 export default function register(api: API): void {
   api.registerPlatform(PLUGIN_NAME, PLATFORM_NAME, Airtouch2PlusPlatform);
+  /* Common config typo / display capitalization */
+  api.registerPlatform(PLUGIN_NAME, 'AirTouch2Plus', Airtouch2PlusPlatform);
 }
