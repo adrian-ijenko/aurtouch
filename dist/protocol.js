@@ -72,12 +72,19 @@ function encodeAcControl(unit) {
         byte12 & 0xff,
     ]);
 }
+/** When absent, damper byte is 0xff so the panel does not treat power-only commands as “set damper to 0%”. */
+const GROUP_DAMPER_OMIT = 255;
 function encodeGroupControl(group) {
     const n = (v, d) => (v === undefined ? d : v);
     const byte9 = n(group.group_number, 0) & 0x3f;
     let byte10 = n(group.group_power_state, exports.GROUP_POWER_CTRL.KEEP) & 0xff;
     byte10 = (byte10 | (n(group.group_target_type, exports.GROUP_SETTING.KEEP) << 5)) & 0xe7;
-    const byte11 = group.group_target ?? 0;
+    const hasDamper = Object.prototype.hasOwnProperty.call(group, 'group_target') &&
+        typeof group.group_target === 'number' &&
+        !Number.isNaN(group.group_target);
+    const byte11 = hasDamper
+        ? Math.min(100, Math.max(0, Math.round(group.group_target)))
+        : GROUP_DAMPER_OMIT;
     return Buffer.from([
         exports.SUBMSG_GROUP_CTRL,
         0,
@@ -207,10 +214,13 @@ function zoneSetActive(group, on) {
     });
 }
 function zoneSetDamper(group, position) {
+    const pos = Math.min(100, Math.max(0, Math.round(position)));
     return encodeGroupControl({
         group_number: group,
+        /** Opening vents while the zone is off is often ignored unless power is ON in the same command. */
+        group_power_state: pos > 0 ? exports.GROUP_POWER_CTRL.ON : exports.GROUP_POWER_CTRL.KEEP,
         group_target_type: exports.GROUP_SETTING.SET_VALUE,
-        group_target: position,
+        group_target: pos,
     });
 }
 function u16be(n) {

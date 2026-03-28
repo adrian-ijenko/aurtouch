@@ -94,17 +94,27 @@ function encodeAcControl(unit: {
   ]);
 }
 
+/** When absent, damper byte is 0xff so the panel does not treat power-only commands as “set damper to 0%”. */
+const GROUP_DAMPER_OMIT = 255;
+
 function encodeGroupControl(group: {
   group_number?: number;
   group_power_state?: number;
   group_target_type?: number;
+  /** 0–100, or omit for 255 (no damper change) — see [airtouch2-python GroupSettings](https://github.com/nathanvdh/airtouch2-python). */
   group_target?: number;
 }): Buffer {
   const n = (v: number | undefined, d: number) => (v === undefined ? d : v);
   const byte9 = n(group.group_number, 0) & 0x3f;
   let byte10 = n(group.group_power_state, GROUP_POWER_CTRL.KEEP) & 0xff;
   byte10 = (byte10 | (n(group.group_target_type, GROUP_SETTING.KEEP) << 5)) & 0xe7;
-  const byte11 = group.group_target ?? 0;
+  const hasDamper =
+    Object.prototype.hasOwnProperty.call(group, 'group_target') &&
+    typeof group.group_target === 'number' &&
+    !Number.isNaN(group.group_target);
+  const byte11 = hasDamper
+    ? Math.min(100, Math.max(0, Math.round(group.group_target as number)))
+    : GROUP_DAMPER_OMIT;
   return Buffer.from([
     SUBMSG_GROUP_CTRL,
     0,
@@ -244,10 +254,13 @@ export function zoneSetActive(group: number, on: boolean): Buffer {
 }
 
 export function zoneSetDamper(group: number, position: number): Buffer {
+  const pos = Math.min(100, Math.max(0, Math.round(position)));
   return encodeGroupControl({
     group_number: group,
+    /** Opening vents while the zone is off is often ignored unless power is ON in the same command. */
+    group_power_state: pos > 0 ? GROUP_POWER_CTRL.ON : GROUP_POWER_CTRL.KEEP,
     group_target_type: GROUP_SETTING.SET_VALUE,
-    group_target: position,
+    group_target: pos,
   });
 }
 
