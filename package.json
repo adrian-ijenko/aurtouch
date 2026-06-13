@@ -1,6 +1,6 @@
 {
   "name": "homebridge-airtouch",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "AirTouch Homebridge — HomeKit for Polyaire AirTouch 2+ wall panels (TCP)",
   "main": "dist/index.js",
   "scripts": {
@@ -18,7 +18,7 @@
   ],
   "engines": {
     "node": ">=18.20.4",
-    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+    "homebridge": "^1.8.0 || ^2.0.0"
   },
   "author": "",
   "license": "MIT",

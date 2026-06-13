@@ -101,7 +101,6 @@ class AirTouchHomebridgePlatform {
             this.syncZoneLabels(accessory);
             this.wireZoneAccessory(accessory);
         }
-        accessory.updateReachability(true);
     }
     resolveAcName(index) {
         const m = this.config.acNames;
@@ -354,7 +353,6 @@ class AirTouchHomebridgePlatform {
                 ? this.Characteristic.StatusFault.GENERAL_FAULT
                 : this.Characteristic.StatusFault.NO_FAULT;
         thermo.updateCharacteristic(this.Characteristic.StatusFault, accessory.context.statusFault);
-        accessory.updateReachability(true);
     }
     wireZoneAccessory(accessory) {
         if (this.accessoryHandlersWired.has(accessory.UUID))
@@ -393,7 +391,6 @@ class AirTouchHomebridgePlatform {
     }
     pushZoneState(accessory, st) {
         if ((accessory.context.suppressPanelZoneUntil ?? 0) > Date.now()) {
-            accessory.updateReachability(true);
             return;
         }
         const sw = accessory.getService(this.Service.Switch);
@@ -407,7 +404,6 @@ class AirTouchHomebridgePlatform {
             damper.updateCharacteristic(this.Characteristic.CurrentPosition, st.group_damper_position);
             damper.updateCharacteristic(this.Characteristic.TargetPosition, st.group_damper_position);
         }
-        accessory.updateReachability(true);
     }
 }
 exports.AirTouchHomebridgePlatform = AirTouchHomebridgePlatform;

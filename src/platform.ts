@@ -175,7 +175,6 @@ export class AirTouchHomebridgePlatform implements DynamicPlatformPlugin {
       this.syncZoneLabels(accessory as PlatformAccessory<ZoneAccessoryContext>);
       this.wireZoneAccessory(accessory as PlatformAccessory<ZoneAccessoryContext>);
     }
-    accessory.updateReachability(true);
   }
 
   private resolveAcName(index: number): string {
@@ -453,8 +452,6 @@ export class AirTouchHomebridgePlatform implements DynamicPlatformPlugin {
         : this.Characteristic.StatusFault.NO_FAULT;
 
     thermo.updateCharacteristic(this.Characteristic.StatusFault, accessory.context.statusFault);
-
-    accessory.updateReachability(true);
   }
 
   private wireZoneAccessory(accessory: PlatformAccessory<ZoneAccessoryContext>): void {
@@ -504,7 +501,6 @@ export class AirTouchHomebridgePlatform implements DynamicPlatformPlugin {
     st: import('./airtouchClient').GroupStatus
   ): void {
     if ((accessory.context.suppressPanelZoneUntil ?? 0) > Date.now()) {
-      accessory.updateReachability(true);
       return;
     }
 
@@ -524,6 +520,5 @@ export class AirTouchHomebridgePlatform implements DynamicPlatformPlugin {
       damper.updateCharacteristic(this.Characteristic.CurrentPosition, st.group_damper_position);
       damper.updateCharacteristic(this.Characteristic.TargetPosition, st.group_damper_position);
     }
-    accessory.updateReachability(true);
   }
 }
